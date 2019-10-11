@@ -1,5 +1,7 @@
 import Document, { Html, Head, Main, NextScript } from 'next/document'
 
+// css reset adapted from https://hankchizljaw.com/wrote/a-modern-css-reset/
+
 export default class MyDocument extends Document {
   render() {
     return (
@@ -16,7 +18,6 @@ export default class MyDocument extends Document {
           <Main />
           <NextScript />
         </body>
-        {/* adapted from https://hankchizljaw.com/wrote/a-modern-css-reset/ */}
         <style jsx global>
           {`
             /* Box sizing rules */

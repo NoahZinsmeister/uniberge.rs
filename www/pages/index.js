@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import emoji from 'emoji.json'
+import { motion } from 'framer-motion'
 
 import { escapeStringRegex, convertStringTo8CodePoints, convertCodePointsToString } from '../utils'
 import { useDebounce } from '../hooks'
@@ -7,31 +8,46 @@ import useTheme from '../theme'
 import Emoji from '../components/Emoji'
 
 const CARD_MARGIN = '1.25rem'
+const CARD_SIZE = '5rem'
 const EMOJI = emoji.filter(e => e.char.length <= 8)
+
+const cardParentVariants = {
+  start: { opacity: 0 },
+  end: {
+    opacity: 1,
+    transition: {
+      delay: 0,
+      staggerChildren: 0.05
+    }
+  }
+}
+
+const cardChildrenVariants = {
+  start: { opacity: 0, y: 25 },
+  end: { opacity: 1, y: 0 }
+}
 
 function Card({ emoji, label }) {
   const theme = useTheme()
 
-  const size = '8rem'
-
   return (
-    <div className="wrapper">
+    <motion.div className="individual-card-wrapper" variants={cardChildrenVariants}>
       <Emoji emoji={emoji} label={label} size="inherit" unselectable={false} />
 
       <style jsx>{`
-        .wrapper {
+        :global(.individual-card-wrapper) {
           display: flex;
           align-items: center;
           justify-content: center;
-          height: ${size};
-          font-size: calc(${size} / 1.75);
+          font-size: ${CARD_SIZE};
+          line-height: 1;
           border-radius: 1.5rem;
           background-color: ${theme.colors.gray[9]};
           margin: ${CARD_MARGIN} ${CARD_MARGIN} 0 0;
-          padding: 0 calc(${size} / 4) 0 calc(${size} / 4);
+          padding: calc(${CARD_SIZE} / 2);
         }
       `}</style>
-    </div>
+    </motion.div>
   )
 }
 
@@ -39,7 +55,8 @@ const DEFAULT_STATE = 'DEFAULT_STATE' // no user input
 const TYPING_STATE = 'TYPING_STATE' // waiting for the debounced user input to catch up to the actual user input
 const LOADED_STATE = 'LOADED_STATE' // user input === debounced user input
 
-function Home({ randomIndices }) {
+const HANDS = ['👋', '👋🏻', '👋🏼', '👋🏽', '👋🏾', '👋🏿']
+function Home({ shuffledIndices }) {
   const theme = useTheme()
 
   // user input
@@ -65,13 +82,13 @@ function Home({ randomIndices }) {
   }, [debouncedSearchTerm])
 
   const defaultCards = useMemo(
-    () => randomIndices.map(i => EMOJI[i]).map(e => <Card key={e.codes} emoji={e.char} label={e.name} />),
-    [randomIndices]
+    () => shuffledIndices.map(i => EMOJI[i]).map(e => <Card key={e.codes} emoji={e.char} label={e.name} />),
+    [shuffledIndices]
   )
   const exactMatchCard =
-    searchTermNormalized === ''
-      ? []
-      : [<Card key="exact-input" emoji={searchTermNormalized} label="typed-search-term" />]
+    searchTermNormalized === '' ? null : (
+      <Card key="exact-input" emoji={searchTermNormalized} label="typed-search-term" />
+    )
   const debouncedMatchCards = useMemo(
     () =>
       debouncedSearchTermEmoji
@@ -93,15 +110,32 @@ function Home({ randomIndices }) {
   }
   const state = getState()
 
+  const [currentHandEmojiIndex, setCurrentHandEmojiIndex] = useState(0)
+
   return (
     <div className="wrapper">
       <h1 className="title">
-        Hi There <Emoji emoji="😉" label="wink" size="inherit" />
+        <Emoji
+          emoji={HANDS[currentHandEmojiIndex]}
+          label="wave"
+          size="inherit"
+          onClick={() => {
+            setCurrentHandEmojiIndex(i => {
+              let newIndex
+              while (true) {
+                newIndex = Math.floor(Math.random() * HANDS.length)
+                if (newIndex !== i) {
+                  break
+                }
+              }
+              return newIndex
+            })
+          }}
+        />{' '}
+        Welcome to Unibergers
       </h1>
 
-      <p className="description">
-        Welcome to Unibergers, a market-driven experiment in ownership, digital goods, and emoji.
-      </p>
+      <p className="description">A market-driven experiment in ownership, digital goods, and emoji</p>
 
       <input
         className="input"
@@ -110,17 +144,23 @@ function Home({ randomIndices }) {
         onChange={e => {
           setSearchTerm(e.target.value)
         }}
-        placeholder="..."
+        placeholder="Search..."
       />
 
-      <div className="blanket">
-        <div className="card-wrapper">
-          {[
-            ...exactMatchCard,
-            ...(state === DEFAULT_STATE ? defaultCards : []),
-            ...(state === LOADED_STATE ? debouncedMatchCards : [])
-          ]}
+      {exactMatchCard !== null && (
+        <div className="blanket">
+          <motion.div className="card-wrapper" variants={cardParentVariants} initial="start" animate="end">
+            {exactMatchCard}
+          </motion.div>
         </div>
+      )}
+
+      <div className="blanket">
+        <motion.div className="card-wrapper" variants={cardParentVariants} initial="start" animate="end">
+          {state === TYPING_STATE && <p>Loading...</p>}
+          {state === DEFAULT_STATE && defaultCards}
+          {state === LOADED_STATE && debouncedMatchCards}
+        </motion.div>
       </div>
 
       <style jsx>{`
@@ -128,22 +168,32 @@ function Home({ randomIndices }) {
           display: flex;
           flex-direction: column;
           align-items: center;
-          max-width: 40rem;
-          margin: 3rem 1.5rem;
+          margin: 2rem 1.5rem;
+          width: 100%;
         }
 
         .title {
           line-height: 1;
+          text-align: center;
         }
 
         .description {
-          word-wrap: break-word;
-          margin: 2rem 0 0 0;
+          margin: 1rem 0 0 0;
+          color: ${theme.colors.gray[4]};
+          text-align: center;
         }
 
         .input {
-          width: 100%;
-          margin: 3rem 0 0 0;
+          margin: 4rem 0 0 0;
+          padding: 0.5rem 1rem 0.5rem 1rem;
+          border-radius: 1rem;
+          border: 0;
+          width: 70%;
+          max-width: 30rem;
+        }
+
+        .input:focus {
+          outline: none;
         }
 
         .blanket {
@@ -153,8 +203,8 @@ function Home({ randomIndices }) {
           width: 100%;
         }
 
-        .card-wrapper {
-          display: inline-flex;
+        :global(.card-wrapper) {
+          display: flex;
           flex-direction: row;
           justify-content: center;
           flex-wrap: wrap;
@@ -168,12 +218,11 @@ function Home({ randomIndices }) {
 }
 
 Home.getInitialProps = () => {
-  const randomIndices = Array(12)
-    .fill(0)
-    .map(() => Math.floor(Math.random() * EMOJI.length))
+  const indices = [...Array(EMOJI.length).keys()]
+  indices.sort(() => 0.5 - Math.random())
 
   return {
-    randomIndices
+    shuffledIndices: indices.slice(0, 11)
   }
 }
 

@@ -15,7 +15,7 @@ const EMOJI_YELLOW = '#F1CA3B'
 const DEFAULT = 'DEFAULT'
 
 const BACKGROUND = {
-  [DEFAULT]: lighten(0.3, EMOJI_YELLOW)
+  [DEFAULT]: lighten(0.25, EMOJI_YELLOW)
 }
 const TEXT = {
   [DEFAULT]: BLACK

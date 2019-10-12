@@ -2,6 +2,6 @@
   "version": 2,
   "name": "unibergers",
   "alias": "uniberge.rs",
-  "builds": [{ "src": "src/next.config.js", "use": "@now/next" }],
-  "routes": [{ "src": "/(.*)", "dest": "/src/$1" }]
+  "builds": [{ "src": "www/next.config.js", "use": "@now/next" }],
+  "routes": [{ "src": "/(.*)", "dest": "/www/$1" }]
 }

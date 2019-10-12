@@ -1,12 +1,12 @@
 {
   "name": "unibergers",
-  "version": "0.1.0",
   "private": true,
   "engines": {
     "node": "10.x"
   },
   "scripts": {
     "build": "next build",
+    "now-build": "next build",
     "check:prettier": "yarn prettier './**/*{.ts,.tsx,.js,.jsx}' --check",
     "check:lint": "yarn eslint './**/*{.ts,.tsx,.js,.jsx}'",
     "check:all": "yarn check:prettier && yarn check:lint"
@@ -25,6 +25,7 @@
     "@typescript-eslint/eslint-plugin": "2.x",
     "@typescript-eslint/parser": "2.x",
     "babel-eslint": "10.x",
+    "core-js": "^3.2.1",
     "eslint": "6.x",
     "eslint-config-react-app": "^5.0.2",
     "eslint-plugin-flowtype": "3.x",

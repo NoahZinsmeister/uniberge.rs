@@ -1,8 +1,8 @@
-export function escapeStringRegex(s: string) {
+export function escapeStringRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-export function convertStringTo8CodePoints(input: string) {
+export function convertStringTo8CodePoints(input: string): number[] {
   const codePoints: number[] = []
   for (let codePoint of input) {
     codePoints.push(codePoint.codePointAt(0))
@@ -15,6 +15,6 @@ export function convertStringTo8CodePoints(input: string) {
   return codePoints.concat(Array(8 - codePoints.length).fill(0))
 }
 
-export function convertCodePointsToString(codePoints: number[]) {
+export function convertCodePointsToString(codePoints: number[]): string {
   return String.fromCodePoint(...codePoints.filter(cp => cp !== 0))
 }

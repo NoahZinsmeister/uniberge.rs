@@ -1,16 +1,14 @@
 import Link from 'next/link'
 
-import useTheme from '../theme'
+import Emoji from './Emoji'
 
 export default function Layout({ children }) {
-  const theme = useTheme()
-
   return (
     <>
       <div className="header">
         <Link href="/">
-          <a>
-            <h3 className="header-text">Unibergers</h3>
+          <a className="logo">
+            <Emoji emoji="😉" label="wink" size="2.5rem" />
           </a>
         </Link>
       </div>
@@ -26,10 +24,8 @@ export default function Layout({ children }) {
           text-decoration: none;
         }
 
-        .header-text {
-          line-height: 1;
+        .logo {
           margin: 1rem 0 0 1rem;
-          color: ${theme.colors.text};
         }
 
         .body {

@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react'
 import emoji from 'emoji.json'
-import { motion } from 'framer-motion'
 
 import { escapeStringRegex, convertStringTo8CodePoints, convertCodePointsToString } from '../utils'
 import { useDebounce } from '../hooks'
@@ -11,27 +10,28 @@ const CARD_MARGIN = '1.25rem'
 const CARD_SIZE = '5rem'
 const EMOJI = emoji.filter(e => e.char.length <= 8)
 
-const cardParentVariants = {
-  start: { opacity: 0 },
-  end: {
-    opacity: 1,
-    transition: {
-      delay: 0,
-      staggerChildren: 0.05
-    }
-  }
-}
+// const cardParentVariants = {
+//   start: { opacity: 0 },
+//   end: {
+//     opacity: 1,
+//     transition: {
+//       delay: 0,
+//       staggerChildren: 0.05
+//     }
+//   }
+// }
 
-const cardChildrenVariants = {
-  start: { opacity: 0, y: 25 },
-  end: { opacity: 1, y: 0 }
-}
+// const cardChildrenVariants = {
+//   start: { opacity: 0, y: 25 },
+//   end: { opacity: 1, y: 0 }
+// }
 
 function Card({ emoji, label }) {
   const theme = useTheme()
 
   return (
-    <motion.div className="individual-card-wrapper" variants={cardChildrenVariants}>
+    // <motion.div className="individual-card-wrapper" variants={cardChildrenVariants}>
+    <div className="individual-card-wrapper">
       <Emoji emoji={emoji} label={label} size="inherit" unselectable={false} />
 
       <style jsx>{`
@@ -47,7 +47,7 @@ function Card({ emoji, label }) {
           padding: calc(${CARD_SIZE} / 2);
         }
       `}</style>
-    </motion.div>
+    </div>
   )
 }
 
@@ -149,18 +149,17 @@ function Home({ shuffledIndices }) {
 
       {exactMatchCard !== null && (
         <div className="blanket">
-          <motion.div className="card-wrapper" variants={cardParentVariants} initial="start" animate="end">
-            {exactMatchCard}
-          </motion.div>
+          {/* <motion.div className="card-wrapper" variants={cardParentVariants} initial="start" animate="end"></motion.div> */}
+          <div className="card-wrapper">{exactMatchCard}</div>
         </div>
       )}
 
       <div className="blanket">
-        <motion.div className="card-wrapper" variants={cardParentVariants} initial="start" animate="end">
+        <div className="card-wrapper">
           {state === TYPING_STATE && <p>Loading...</p>}
           {state === DEFAULT_STATE && defaultCards}
           {state === LOADED_STATE && debouncedMatchCards}
-        </motion.div>
+        </div>
       </div>
 
       <style jsx>{`
@@ -201,6 +200,7 @@ function Home({ shuffledIndices }) {
           border-radius: 1.5rem;
           background-color: ${theme.colors.gray[10]};
           width: 100%;
+          max-width: 50rem;
         }
 
         :global(.card-wrapper) {

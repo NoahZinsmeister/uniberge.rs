@@ -13,8 +13,7 @@
   },
   "dependencies": {
     "emoji.json": "^12.1.0",
-    "framer-motion": "^1.6.12",
-    "next": "9.1.1",
+    "next": "9.0.8",
     "polished": "^3.4.1",
     "react": "16.10.2",
     "react-dom": "16.10.2"

@@ -1,8 +1,7 @@
 import { useState, useMemo } from 'react'
-import escapeStringRegexp from 'escape-string-regexp'
 import emoji from 'emoji.json'
 
-import { convertStringTo8CodePoints, convertCodePointsToString } from '../utils'
+import { escapeStringRegex, convertStringTo8CodePoints, convertCodePointsToString } from '../utils'
 import { useDebounce } from '../hooks'
 import useTheme from '../theme'
 import Emoji from '../components/Emoji'
@@ -60,7 +59,7 @@ function Home({ randomIndices }) {
     if (debouncedSearchTerm === '') {
       return []
     } else {
-      const regex = new RegExp(escapeStringRegexp(debouncedSearchTerm), 'i')
+      const regex = new RegExp(escapeStringRegex(debouncedSearchTerm), 'i')
       return EMOJI.filter(e => e.category.match(regex) || e.char.match(regex) || e.name.match(regex))
     }
   }, [debouncedSearchTerm])

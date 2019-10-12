@@ -1,3 +1,7 @@
+export function escapeStringRegex(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 export function convertStringTo8CodePoints(input: string) {
   const codePoints: number[] = []
   for (let codePoint of input) {

@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "emoji.json": "^12.1.0",
-    "escape-string-regexp": "^2.0.0",
     "framer-motion": "^1.6.12",
     "next": "9.1.1",
     "polished": "^3.4.1",

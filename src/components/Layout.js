@@ -35,6 +35,8 @@ export default function Layout({ children }) {
         .body {
           display: flex;
           flex-grow: 1;
+          width: 100%;
+          justify-content: center;
         }
       `}</style>
     </>

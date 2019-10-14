@@ -1,116 +1,239 @@
-import { useState, useMemo } from 'react'
-import emoji from 'emoji.json'
+import { useState, useEffect, forwardRef, useRef } from 'react'
+import { useRouter } from 'next/router'
+import fetch from 'isomorphic-unfetch'
+import { FixedSizeList as List } from 'react-window'
 
-import { escapeStringRegex, convertStringTo8CodePoints, convertCodePointsToString } from '../utils'
-import { useDebounce } from '../hooks'
+import { getHost, convertStringTo8CodePoints, convertCodePointsToString } from '../utils'
+import { useDefaultedDebounce } from '../hooks'
+import { EMOJI } from '../constants'
 import useTheme from '../theme'
 import Emoji from '../components/Emoji'
 
-const CARD_MARGIN = '1.25rem'
-const CARD_SIZE = '5rem'
-const EMOJI = emoji.filter(e => e.char.length <= 8)
+const HANDS = ['👋', '👋🏻', '👋🏼', '👋🏽', '👋🏾', '👋🏿']
 
-// const cardParentVariants = {
-//   start: { opacity: 0 },
-//   end: {
-//     opacity: 1,
-//     transition: {
-//       delay: 0,
-//       staggerChildren: 0.05
-//     }
-//   }
-// }
+const CARD_HEIGHT = 100
+const CARD_GUTTER_SIZE = 10
+const EMOJI_SIZE = 60
 
-// const cardChildrenVariants = {
-//   start: { opacity: 0, y: 25 },
-//   end: { opacity: 1, y: 0 }
-// }
+async function getSearchResults(searchTerm, req) {
+  return await fetch(`${getHost(req)}/api/search`, {
+    method: 'POST',
+    body: JSON.stringify({ searchTerm })
+  }).then(response => {
+    if (!response.ok) {
+      throw Error(`${response.status} Error: ${response.statusText}`)
+    } else {
+      return response.json().then(({ indices }) => indices)
+    }
+  })
+}
 
-function Card({ emoji, label }) {
+function Card({ setSearchTerm, index, data, style }) {
   const theme = useTheme()
 
+  const emoji = EMOJI[data[index]]
+
   return (
-    // <motion.div className="individual-card-wrapper" variants={cardChildrenVariants}>
-    <div className="individual-card-wrapper">
-      <Emoji emoji={emoji} label={label} size="inherit" unselectable={false} />
+    <div
+      style={{
+        ...style,
+        top: style.top + CARD_GUTTER_SIZE,
+        height: style.height - CARD_GUTTER_SIZE
+      }}
+    >
+      <div className="card-wrapper">
+        <div className="card-emoji">
+          <Emoji emoji={emoji.char} label={emoji.name} size={`${EMOJI_SIZE}px`} />
+        </div>
+
+        <div className="card-body">
+          <h3 className="card-body-name">
+            <b>{emoji.name}</b>
+          </h3>
+          <button
+            className="card-body-category"
+            onClick={() => {
+              setSearchTerm(emoji.category)
+            }}
+          >
+            {emoji.category}
+          </button>
+        </div>
+
+        <a
+          className="card-link"
+          href={`https://emojipedia.org/emoji/${emoji.char}/`}
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          ↗
+        </a>
+      </div>
 
       <style jsx>{`
-        :global(.individual-card-wrapper) {
+        .card-wrapper {
+          display: flex;
+          align-items: center;
+          justify-content: flex-start;
+          height: 100%;
+          background-color: ${theme.colors.gray[index % 2 === 0 ? 10 : 9]};
+          border-radius: 2rem;
+        }
+
+        .card-emoji {
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: ${CARD_SIZE};
-          line-height: 1;
-          border-radius: 1.5rem;
-          background-color: ${theme.colors.gray[9]};
-          margin: ${CARD_MARGIN} ${CARD_MARGIN} 0 0;
-          padding: calc(${CARD_SIZE} / 2);
+          margin: 1rem;
+          min-width: 6rem;
+        }
+
+        .card-body {
+          flex-grow: 1;
+        }
+
+        .card-body-name {
+          width: fit-content;
+        }
+
+        .card-body-category {
+          font-size: 0.75rem;
+          margin: 0;
+          padding: 0;
+          color: theme.colors.gray[4];
+          background-color: unset;
+          cursor: pointer;
+          width: fit-content;
+          border: none;
+        }
+
+        .card-link {
+          text-decoration: none;
+          position: absolute;
+          top: 0;
+          right: 0;
+          padding: 0.25rem;
+          margin: 0.75rem;
+        }
+
+        .card-link:hover {
+          text-decoration: underline;
         }
       `}</style>
     </div>
   )
 }
 
-const DEFAULT_STATE = 'DEFAULT_STATE' // no user input
-const TYPING_STATE = 'TYPING_STATE' // waiting for the debounced user input to catch up to the actual user input
-const LOADED_STATE = 'LOADED_STATE' // user input === debounced user input
+const innerElementType = forwardRef(({ style, ...rest }, ref) => (
+  <div
+    ref={ref}
+    style={{
+      ...style,
+      paddingTop: CARD_GUTTER_SIZE
+    }}
+    {...rest}
+  />
+))
 
-const HANDS = ['👋', '👋🏻', '👋🏼', '👋🏽', '👋🏾', '👋🏿']
-function Home({ shuffledIndices }) {
+const cache = {}
+
+function Home({ indices, initialSearch, initialSearchIndices, initialPosition }) {
+  const ref = useRef() // for react-window
+  const router = useRouter()
   const theme = useTheme()
 
-  // user input
-  const [searchTerm, setSearchTerm] = useState('')
+  const [currentHandEmojiIndex, setCurrentHandEmojiIndex] = useState(0)
 
-  // normalized search term used used for exact matches
-  let searchTermNormalized
+  // user input...
+  const [searchTerm, setSearchTerm] = useState(initialSearch === null ? '' : initialSearch)
+  // ...debounced
+  const debouncedSearchTerm = useDefaultedDebounce(searchTerm, 200, '')
+
+  // try to get the exact match for the search term
+  let exactMatchIndex
   try {
-    searchTermNormalized = convertCodePointsToString(convertStringTo8CodePoints(searchTerm))
-  } catch {
-    searchTermNormalized = ''
+    const normalizedSearchTerm = convertCodePointsToString(convertStringTo8CodePoints(searchTerm))
+    const indexOf = EMOJI.findIndex(({ char }) => char === normalizedSearchTerm)
+    if (indexOf === -1) {
+      throw Error('No exact match.')
+    }
+    exactMatchIndex = indexOf
+  } catch (error) {
+    exactMatchIndex = null
   }
 
-  // debounced search term used for filtering by regex matches
-  const debouncedSearchTerm = useDebounce(searchTerm, 300)
-  const debouncedSearchTermEmoji = useMemo(() => {
-    if (debouncedSearchTerm === '') {
-      return []
-    } else {
-      const regex = new RegExp(escapeStringRegex(debouncedSearchTerm), 'i')
-      return EMOJI.filter(e => e.category.match(regex) || e.char.match(regex) || e.name.match(regex))
-    }
-  }, [debouncedSearchTerm])
+  // handle search results for the debounced search term
+  const [searchIndices, setSearchIndices] = useState(initialSearchIndices)
+  const [searchError, setSearchError] = useState()
 
-  const defaultCards = useMemo(
-    () => shuffledIndices.map(i => EMOJI[i]).map(e => <Card key={e.codes} emoji={e.char} label={e.name} />),
-    [shuffledIndices]
-  )
-  const exactMatchCard =
-    searchTermNormalized === '' ? null : (
-      <Card key="exact-input" emoji={searchTermNormalized} label="typed-search-term" />
-    )
-  const debouncedMatchCards = useMemo(
-    () =>
-      debouncedSearchTermEmoji
-        .filter(e => e.char !== searchTermNormalized)
-        .map(e => <Card key={e.codes} emoji={e.char} label={e.name} />),
-    [debouncedSearchTermEmoji, searchTermNormalized]
-  )
+  // define various helpful flags
+  const loading = debouncedSearchTerm !== '' && searchIndices === null
+  const noResults = searchIndices && searchIndices.length === 0
+  const listToRender = loading ? [] : searchIndices || indices
 
-  function getState() {
-    if (searchTerm === '') {
-      return DEFAULT_STATE
-    } else {
-      if (searchTerm !== debouncedSearchTerm) {
-        return TYPING_STATE
+  // handle debounced search term logic
+  useEffect(() => {
+    if (debouncedSearchTerm !== '') {
+      let stale = false
+
+      if (debouncedSearchTerm === initialSearch || cache[debouncedSearchTerm]) {
+        setSearchIndices(debouncedSearchTerm === initialSearch ? initialSearchIndices : cache[debouncedSearchTerm])
       } else {
-        return LOADED_STATE
+        getSearchResults(debouncedSearchTerm)
+          .then(indices => {
+            cache[debouncedSearchTerm] = indices
+            if (!stale) {
+              setSearchIndices(indices)
+            }
+          })
+          .catch(() => {
+            setSearchError(true)
+          })
+      }
+
+      return () => {
+        stale = true
+        setSearchIndices(null)
+        setSearchError()
       }
     }
-  }
-  const state = getState()
+  }, [debouncedSearchTerm, initialSearch, initialSearchIndices])
 
-  const [currentHandEmojiIndex, setCurrentHandEmojiIndex] = useState(0)
+  // scroll to initial position if needed
+  useEffect(() => {
+    if (initialPosition > 0) {
+      ref.current.scrollToItem(initialPosition, 'start')
+    }
+  }, [initialPosition])
+
+  // pin debounced search term to the url
+  useEffect(() => {
+    const { search, ...rest } = router.query
+
+    if (debouncedSearchTerm === '') {
+      if (search !== undefined) {
+        router.push(
+          {
+            pathname: router.pathname,
+            query: rest
+          },
+          undefined,
+          { shallow: true }
+        )
+      }
+    } else {
+      if (search !== debouncedSearchTerm) {
+        router.push(
+          {
+            pathname: router.pathname,
+            query: { ...rest, search: debouncedSearchTerm }
+          },
+          undefined,
+          { shallow: true }
+        )
+      }
+    }
+  }, [router, debouncedSearchTerm])
 
   return (
     <div className="wrapper">
@@ -121,12 +244,9 @@ function Home({ shuffledIndices }) {
           size="inherit"
           onClick={() => {
             setCurrentHandEmojiIndex(i => {
-              let newIndex
-              while (true) {
+              let newIndex = i
+              while (newIndex === i) {
                 newIndex = Math.floor(Math.random() * HANDS.length)
-                if (newIndex !== i) {
-                  break
-                }
               }
               return newIndex
             })
@@ -136,7 +256,6 @@ function Home({ shuffledIndices }) {
       </h1>
 
       <p className="description">A market-driven experiment in ownership, digital goods, and emoji</p>
-
       <input
         className="input"
         type="text"
@@ -147,20 +266,48 @@ function Home({ shuffledIndices }) {
         placeholder="Search..."
       />
 
-      {exactMatchCard !== null && (
-        <div className="blanket">
-          {/* <motion.div className="card-wrapper" variants={cardParentVariants} initial="start" animate="end"></motion.div> */}
-          <div className="card-wrapper">{exactMatchCard}</div>
-        </div>
-      )}
+      <div className="shim" />
 
-      <div className="blanket">
-        <div className="card-wrapper">
-          {state === TYPING_STATE && <p>Loading...</p>}
-          {state === DEFAULT_STATE && defaultCards}
-          {state === LOADED_STATE && debouncedMatchCards}
-        </div>
-      </div>
+      {loading && <p>Searching...</p>}
+      {noResults && <p>No Results</p>}
+      {searchError && <p>Unknown Error</p>}
+
+      {exactMatchIndex && <p>Exact Match</p>}
+
+      <List
+        ref={ref}
+        height={600}
+        width={550}
+        itemCount={listToRender.length}
+        itemSize={CARD_HEIGHT + CARD_GUTTER_SIZE}
+        itemData={listToRender}
+        itemKey={(index, data) => EMOJI[data[index]].codes}
+        onItemsRendered={({ visibleStartIndex }) => {
+          const { position, ...rest } = router.query
+          if (visibleStartIndex === 0) {
+            router.push(
+              {
+                pathname: router.pathname,
+                query: rest
+              },
+              undefined,
+              { shallow: true }
+            )
+          } else {
+            router.push(
+              {
+                pathname: router.pathname,
+                query: { ...rest, position: visibleStartIndex }
+              },
+              undefined,
+              { shallow: true }
+            )
+          }
+        }}
+        innerElementType={innerElementType}
+      >
+        {({ index, data, style }) => <Card setSearchTerm={setSearchTerm} index={index} data={data} style={style} />}
+      </List>
 
       <style jsx>{`
         .wrapper {
@@ -195,35 +342,28 @@ function Home({ shuffledIndices }) {
           outline: none;
         }
 
-        .blanket {
-          margin: 1rem 0 0 0;
-          border-radius: 1.5rem;
-          background-color: ${theme.colors.gray[10]};
-          width: 100%;
-          max-width: 50rem;
-        }
-
-        :global(.card-wrapper) {
-          display: flex;
-          flex-direction: row;
-          justify-content: center;
-          flex-wrap: wrap;
-          margin: -${CARD_MARGIN} 0 0 0;
-          padding: ${CARD_MARGIN};
-          width: calc(100% + ${CARD_MARGIN});
+        .shim {
+          height: 1rem;
         }
       `}</style>
     </div>
   )
 }
 
-Home.getInitialProps = () => {
-  const indices = [...Array(EMOJI.length).keys()]
-  indices.sort(() => 0.5 - Math.random())
+Home.getInitialProps = async context => {
+  const { query, req } = context // query can contain: search, position
 
-  return {
-    shuffledIndices: indices.slice(0, 11)
-  }
+  const indices = [...Array(EMOJI.length).keys()]
+
+  const initialSearch = query.search || null
+  const initialSearchIndices = initialSearch === null ? null : await getSearchResults(initialSearch, req)
+
+  const parsedPosition = Number.parseInt(query.position)
+  const parsedPositionIsValid =
+    Number.isInteger(parsedPosition) && parsedPosition > 0 && parsedPosition < (initialSearchIndices || indices).length
+  const initialPosition = parsedPositionIsValid ? parsedPosition : null
+
+  return { indices, initialSearch, initialSearchIndices, initialPosition }
 }
 
 export default Home

@@ -5,7 +5,7 @@ export default function Emoji({
   label = 'emoji',
   size = '24px',
   onClick = false,
-  unselectable = false,
+  unselectable = true,
   ...rest
 }) {
   const ref = useRef()

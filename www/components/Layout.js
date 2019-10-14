@@ -1,17 +1,7 @@
-import Link from 'next/link'
-
-import Emoji from './Emoji'
-
 export default function Layout({ children }) {
   return (
     <>
-      <div className="header">
-        <Link href="/">
-          <a className="logo">
-            <Emoji emoji="😉" label="wink" size="2.5rem" />
-          </a>
-        </Link>
-      </div>
+      <div className="header"></div>
 
       <div className="body">{children}</div>
 
